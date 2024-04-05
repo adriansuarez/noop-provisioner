@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ProvisionerName = "nuodb.github.io/noop-storage-provisioner"
+	ProvisionerName = "nuodb.github.io/noop-provisioner"
 )
 
 var (

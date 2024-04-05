@@ -8,7 +8,7 @@ noop-provisioner: dep
 	CGO_ENABLED=0 go build -a -o noop-provisioner .
 
 image:
-	docker build -t $(IMAGE) -f Dockerfile.scratch .
+	docker build -t $(IMAGE) .
 
 clean:
 	rm -rf noop-provisioner
