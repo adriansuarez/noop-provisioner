@@ -3,11 +3,9 @@ module sigs.k8s.io/kubernetes-sigs/sig-storage-lib-external-provisioner/examples
 go 1.16
 
 require (
-	k8s.io/api v0.19.1
-	k8s.io/apimachinery v0.19.1
-	k8s.io/client-go v0.19.1
-	k8s.io/klog/v2 v2.3.0
-	sigs.k8s.io/sig-storage-lib-external-provisioner/v10 v9.0.1
+	k8s.io/api v0.28.0
+	k8s.io/apimachinery v0.28.0
+	k8s.io/client-go v0.28.0
+	k8s.io/klog/v2 v2.100.1
+	sigs.k8s.io/sig-storage-lib-external-provisioner/v10 v10.0.0-20240328134532-af9133120c17
 )
-
-replace sigs.k8s.io/sig-storage-lib-external-provisioner/v10 => ../..

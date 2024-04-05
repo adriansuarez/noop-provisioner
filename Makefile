@@ -19,7 +19,7 @@ all: dep hostpath-provisioner image
 dep:
 	go mod tidy
 
-hostpath-provisioner:
+hostpath-provisioner: dep
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o hostpath-provisioner .
 
 image: hostpath-provisioner
