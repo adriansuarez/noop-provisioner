@@ -1,4 +1,4 @@
-module sigs.k8s.io/kubernetes-sigs/sig-storage-lib-external-provisioner/examples/hostpath-provisioner
+module github.com/adriansuarez/noop-provisioner
 
 go 1.20
 
