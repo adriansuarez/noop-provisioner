@@ -1,28 +1,9 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"os"
-	"path"
-	"syscall"
 
 	"sigs.k8s.io/sig-storage-lib-external-provisioner/v10/controller"
 
@@ -30,50 +11,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	klog "k8s.io/klog/v2"
 )
 
 const (
-	provisionerName = "example.com/hostpath"
+	ProvisionerName = "nuodb.github.io/noop-storage-provisioner"
 )
 
-type hostPathProvisioner struct {
-	// The directory to create PV-backing directories in
-	pvDir string
+var (
+	kubeconfig = flag.String("kubeconfig", os.Getenv("KUBECONFIG"), "Absolute path to the kubeconfig file. Needs to be set if the provisioner is being run out of cluster.")
+)
 
-	// Identity of this hostPathProvisioner, set to node's name. Used to identify
-	// "this" provisioner's PVs.
-	identity string
-}
+type noopProvisioner struct{}
 
-// NewHostPathProvisioner creates a new hostpath provisioner
-func NewHostPathProvisioner() controller.Provisioner {
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		klog.Fatal("env variable NODE_NAME must be set so that this provisioner can identify itself")
-	}
-	return &hostPathProvisioner{
-		pvDir:    "/tmp/hostpath-provisioner",
-		identity: nodeName,
-	}
-}
-
-var _ controller.Provisioner = &hostPathProvisioner{}
+var _ controller.Provisioner = &noopProvisioner{}
 
 // Provision creates a storage asset and returns a PV object representing it.
-func (p *hostPathProvisioner) Provision(ctx context.Context, options controller.ProvisionOptions) (*v1.PersistentVolume, controller.ProvisioningState, error) {
-	path := path.Join(p.pvDir, options.PVName)
-
-	if err := os.MkdirAll(path, 0777); err != nil {
-		return nil, controller.ProvisioningFinished, err
-	}
-
+func (p *noopProvisioner) Provision(ctx context.Context, options controller.ProvisionOptions) (*v1.PersistentVolume, controller.ProvisioningState, error) {
+	path := "/noop"
 	pv := &v1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: options.PVName,
-			Annotations: map[string]string{
-				"hostPathProvisionerIdentity": p.identity,
-			},
+			Name:        options.PVName,
+			Annotations: map[string]string{},
 		},
 		Spec: v1.PersistentVolumeSpec{
 			PersistentVolumeReclaimPolicy: *options.StorageClass.ReclaimPolicy,
@@ -88,38 +48,28 @@ func (p *hostPathProvisioner) Provision(ctx context.Context, options controller.
 			},
 		},
 	}
-
 	return pv, controller.ProvisioningFinished, nil
 }
 
 // Delete removes the storage asset that was created by Provision represented
 // by the given PV.
-func (p *hostPathProvisioner) Delete(ctx context.Context, volume *v1.PersistentVolume) error {
-	ann, ok := volume.Annotations["hostPathProvisionerIdentity"]
-	if !ok {
-		return errors.New("identity annotation not found on PV")
-	}
-	if ann != p.identity {
-		return &controller.IgnoredError{Reason: "identity annotation on PV does not match ours"}
-	}
-
-	path := path.Join(p.pvDir, volume.Name)
-	if err := os.RemoveAll(path); err != nil {
-		return err
-	}
-
+func (p *noopProvisioner) Delete(ctx context.Context, volume *v1.PersistentVolume) error {
 	return nil
 }
 
 func main() {
-	syscall.Umask(0)
-
 	flag.Parse()
 	flag.Set("logtostderr", "true")
 
-	// Create an InClusterConfig and use it to create a client for the controller
-	// to use to communicate with Kubernetes
-	config, err := rest.InClusterConfig()
+	var config *rest.Config
+	var err error
+	if *kubeconfig != "" {
+		klog.Infof("Using supplied kube config %s...", *kubeconfig)
+		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	} else {
+		klog.Infof("Building kube config for running in cluster...")
+		config, err = rest.InClusterConfig()
+	}
 	if err != nil {
 		klog.Fatalf("Failed to create config: %v", err)
 	}
@@ -128,13 +78,8 @@ func main() {
 		klog.Fatalf("Failed to create client: %v", err)
 	}
 
-	// Create the provisioner: it implements the Provisioner interface expected by
-	// the controller
-	hostPathProvisioner := NewHostPathProvisioner()
-
-	// Start the provision controller which will dynamically provision hostPath
-	// PVs
-	pc := controller.NewProvisionController(clientset, provisionerName, hostPathProvisioner)
+	// Start the provision controller with noop provisioner implementation
+	pc := controller.NewProvisionController(clientset, ProvisionerName, &noopProvisioner{})
 
 	// Never stops.
 	pc.Run(context.Background())
