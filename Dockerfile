@@ -5,9 +5,9 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 # Build binary
-COPY . .
+COPY main.go .
 RUN CGO_ENABLED=0 go build -a -o noop-provisioner main.go
 
-FROM scratch
-COPY --from=golang-builder /workspace/noop-provisioner /
-ENTRYPOINT ["/noop-provisioner"]
+FROM alpine:3.19
+COPY --from=golang-builder /workspace/noop-provisioner /usr/local/bin/
+ENTRYPOINT ["noop-provisioner"]
